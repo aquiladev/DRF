@@ -24,46 +24,41 @@ namespace Drf
 			string[] files = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
 			foreach (var file in files)
 			{
-				using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan))
-				using (var bs = new BufferedStream(fs))
+				var fi = new FileInfo(file);
+				var length = fi.Length;
+				if (itemSizes.ContainsKey(length))
 				{
-					var length = fs.Length;
-					if (itemSizes.ContainsKey(length))
+					var cand = itemSizes[length];
+					if (!fileHashs.ContainsValue(cand))
 					{
-						var cand = itemSizes[length];
-						if (!fileHashs.ContainsValue(cand))
-						{
-							using (var fs2 = new FileStream(cand, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan))
-							using (var bs2 = new BufferedStream(fs2))
-							{
-								var candHash = GetHash(_crypt, bs2);
-								fileHashs.Add(candHash, cand);
-							}
-						}
-						var fileHash = GetHash(_crypt, bs);
-						if (fileHashs.ContainsKey(fileHash))
-						{
-							dubs.Add(file);
-						}
-						else
-						{
-							fileHashs.Add(fileHash, file);
-						}
+						var candHash = GetHash(_crypt, cand);
+						fileHashs.Add(candHash, cand);
+					}
+					var fileHash = GetHash(_crypt, file);
+					if (fileHashs.ContainsKey(fileHash))
+					{
+						dubs.Add(file);
 					}
 					else
 					{
-						itemSizes.Add(fs.Length, file);
+						fileHashs.Add(fileHash, file);
 					}
+				}
+				else
+				{
+					itemSizes.Add(length, file);
 				}
 			}
 			return dubs.ToArray();
 		}
 
-		private string GetHash(HashAlgorithm crypt, Stream stream)
+		private string GetHash(HashAlgorithm crypt, string fileName)
 		{
-			var hash = crypt.ComputeHash(stream);
-
-			return stream.Length + BitConverter.ToString(hash);
+			using (var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.SequentialScan))
+			{
+				var hash = crypt.ComputeHash(fs);
+				return fs.Length + BitConverter.ToString(hash);
+			}
 		}
 	}
 }
